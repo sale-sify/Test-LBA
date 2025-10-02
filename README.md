@@ -28,3 +28,10 @@ cd frontend
 npm install
 npm run dev
 ```
+
+### Configuration de l'environnement
+
+Copier le fichier `.env.example` :
+```bash
+cp backend/.env.example backend/.env
+```
