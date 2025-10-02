@@ -14,13 +14,24 @@ app.get('/', (req, res) => {
   res.send('API is running');
 });
 
+//Creation du serveur avec WebSocket
+const http = require('http').createServer(app);
+const { Server } = require('socket.io');
+const io = new Server(http, {
+  cors: {
+    origin: "*"
+  }
+});
+io.on("connection", (socket) => {
+  console.log("Un client est connecté:", socket.id);
+});
 
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
 .then(() => {
   console.log("MongoDB Atlas connected ✅");
-  app.listen(5000, () => console.log("Server running on http://localhost:5000"));
+  http.listen(5000, () => console.log("Server running on http://localhost:5000"));
 })
 .catch(err => console.error("MongoDB connection error",err));
 
@@ -43,6 +54,7 @@ app.post('/products', async (req, res) => {
     try {
         const newProduct = new Product(req.body);
         await newProduct.save();
+        io.emit("productAdded", newProduct);
         res.status(201).json(newProduct);
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -64,6 +76,7 @@ app.put('/products/:id', async (req, res) => {
             { new: true, runValidators: true }
         );
         if (!modifiedProduct) return res.status(404).json({ error: 'Product not found' });
+        io.emit("productUpdated", modifiedProduct);
         res.json(modifiedProduct);
     } catch(err) {
         console.error(err.message);
@@ -80,12 +93,10 @@ app.delete('/products/:id', async (req, res) => {
         return res.status(400).json({ error: 'Product not found' })
     }
     try {
-        const deletedProduct = await Product.findByIdAndDelete(id)
-        if (!deletedProduct) {
-            return res.status(404).json('Product not found');
-        } else {
-            res.status(200).json('Product deleted successfully')
-        }
+        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+        if (!deletedProduct) return res.status(404).json({ error: "Not found" });
+        io.emit("productDeleted", deletedProduct._id); 
+        res.json({ message: "Deleted" });
     } catch (err) {
         res.status(500).json('Internal error while deleting product')
     }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Container, Grid, Card, CardContent, Typography, TextField, Button, FormControlLabel, Checkbox, Box, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { io } from "socket.io-client";
 import './App.css';
 
 
@@ -23,6 +24,22 @@ function App() {
       .then(res => res.json())
       .then(data => setProducts(data))
       .catch(err => console.error("API error", err));
+
+      const socket = io("http://localhost:5000");
+
+      socket.on("productAdded", (newProduct) => {
+        setProducts(prev => [...prev, newProduct]);
+      });
+
+      socket.on("productUpdated", (updatedProduct) => {
+        setProducts(prev => prev.map(p => p._id === updatedProduct._id ? updatedProduct : p));
+      });
+
+      socket.on("productDeleted", (deletedId) => {
+        setProducts(prev => prev.filter(p => p._id !== deletedId));
+      });
+
+      return () => socket.disconnect();
   }, []);
 
   const handleChange = (e) => {
@@ -63,7 +80,7 @@ function App() {
     if (form.rating < 0 || form.rating > 5) {
       newErrors.rating = "La note doit etre comprise entre 0 et 5"
     }
-    if (!form.warranty_years < 0) {
+    if (form.warranty_years < 0) {
       newErrors.warranty_years = "La garantie ne peut etre inferieure a zero"
     }
     setErrors(newErrors);
@@ -236,7 +253,12 @@ function App() {
             key={p._id}
             
           >
-            <Card sx={{ minHeight: 150, background: '#555555da'}}>
+            <Card sx={{ 
+              minHeight: 150,
+              background: '#555555da',
+              width: 215
+              }}
+            >
               <CardContent sx={{  color: "white" }}>
                 <Typography variant='h6'>{p.name}</Typography>
                 <Typography variant='body1'sx={{ textAlign: 'left'}}>Prix : {p.price}$</Typography>
@@ -244,24 +266,7 @@ function App() {
                 <Typography variant='body2'sx={{ textAlign: 'left'}}>Disponible : {p.available ? "Oui" : "Non"}</Typography>
                 <Typography variant='body2'sx={{ textAlign: 'left'}}>Garantie : {p.warranty_years} Ans</Typography>
                 <Typography variant='body2'sx={{ textAlign: 'left'}}>Note {p.rating}/5</Typography>
-                <Button
-                  variant='contained'
-                  color='error'
-                  size='small'
-                  sx={{ marginTop: 1 }}
-                  onClick={async () => {
-                    try {
-                      await fetch(`http://localhost:5000/products/${p._id}`, {
-                        method: "DELETE"
-                      });
-                      setProducts(products.filter(prod => prod._id !== p._id));
-                    } catch (err) {
-                      console.error("Erreur suppression", Erreur);
-                    }
-                  }}
-                  >
-                     Supprimer
-                </Button>
+                
 
                 <Button
                   variant='contained'
@@ -276,6 +281,25 @@ function App() {
                   Modifier
                 </Button>
 
+                <Button
+                  variant='contained'
+                  color='error'
+                  size='small'
+                  sx={{ marginTop: 1 }}
+                  onClick={async () => {
+                    try {
+                      await fetch(`http://localhost:5000/products/${p._id}`, {
+                        method: "DELETE"
+                      });
+                      setProducts(products.filter(prod => prod._id !== p._id));
+                    } catch (err) {
+                      console.error("Erreur suppression", err);
+                    }
+                  }}
+                  >
+                     Supprimer
+                </Button>
+
               </CardContent>
 
             </Card>
@@ -288,9 +312,9 @@ function App() {
         onClose={() => setOpen(false)}
         PaperProps={{
           sx: {
-            backgroundColor: "#333",     // fond gris foncé
-            color: "white",              // texte blanc
-            border: "1px solid white",   // contour blanc
+            backgroundColor: "#333",    
+            color: "white",              
+            border: "1px solid white",   
             borderRadius: 2,
             minWidth: 400
           }
